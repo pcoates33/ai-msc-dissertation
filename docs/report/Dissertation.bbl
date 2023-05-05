@@ -1,0 +1,31 @@
+\begin{thebibliography}{2}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\urlprefix}{Available from: }
+\providecommand{\urldateprefix}{Accessed }
+\providecommand{\selectlanguage}[1]{\relax}
+\providecommand{\bibinfo}[2]{#2}
+\providecommand{\eprint}[2][]{\url{#2}}
+
+\bibitem[{Br{\"u}nnler(2003)}]{Brun:03:Atomic-C:oz}
+\bibinfo{author}{Br{\"u}nnler, K.}, \bibinfo{year}{2003}.
+\newblock \bibinfo{title}{Atomic cut elimination for classical logic} [Online].
+\newblock In: \bibinfo{editor}{M.~Baaz} and \bibinfo{editor}{J.A. Makowsky},
+  eds. \emph{\bibinfo{booktitle}{Computer science logic (csl)}}.
+  \bibinfo{publisher}{Springer}, \emph{\bibinfo{series}{Lecture Notes in
+  Computer Science}}, vol. \bibinfo{volume}{2803}, pp.\bibinfo{pages}{86--97}.
+\newblock \urlprefix\url{https://doi.org/10.1007/978-3-540-45220-1\_9}.
+
+\bibitem[{Stra{\ss}burger(2017)}]{Stra:17:Combinat:qf}
+\bibinfo{author}{Stra{\ss}burger, L.}, \bibinfo{year}{2017}.
+\newblock \bibinfo{title}{Combinatorial flows and their normalisation}
+  [Online].
+\newblock In: \bibinfo{editor}{D.~Miller}, ed. \emph{\bibinfo{booktitle}{2nd
+  international conference on formal structures for computation and deduction
+  (fscd)}}. \bibinfo{publisher}{Schloss Dagstuhl--Leibniz-Zentrum f{\"u}r
+  Informatik}, \emph{\bibinfo{series}{Leibniz International Proceedings in
+  Informatics (LIPIcs)}}, vol.~\bibinfo{volume}{84},
+  pp.\bibinfo{pages}{31:1--17}.
+\newblock \urlprefix\url{https://doi.org/10.4230/LIPIcs.FSCD.2017.31}.
+
+\end{thebibliography}
