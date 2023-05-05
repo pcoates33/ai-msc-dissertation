@@ -351,3 +351,10 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+# Ignore latex files used as part of build - not needed in repo
+docs/report/Dissertation.fdb_latexmk
+docs/report/Dissertation.fls
+docs/report/Dissertation.aux
+docs/report/Dissertation.log
+docs/report/Dissertation.out
