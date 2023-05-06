@@ -6,13 +6,21 @@
 
 \usepackage{Bath-CS-Dissertation}
 
-\title{\bf $\langle$Dissertation Title$\rangle$}
-\author{$\langle$Student Name$\rangle$}
-\date{MSc $\langle$EngD$\rangle$ in $\langle$Programme$\rangle$\\ 
+\title{\bf Using an Energy-Based Model to provide\\
+            rewards to a Reinforcement Learning agent\\
+                for the control of a robot arm.}
+\author{Peter Coates}
+\date{MSc inArtificial Intelligence\\ 
                                  % E.g.: Bachelor of Science in Computer Science
                                  %       Master of Science in Data Science
       The University of Bath\\
-      $\langle$Academic Year$\rangle$}
+      2023-2024}
+
+\makeatletter
+\let\thetitle\@title
+\let\theauthor\@author
+\let\thedate\@date
+\makeatother
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -34,7 +42,7 @@
 \consultation{0}
 \newpage
 
-\declaration{$\langle$Dissertation Title$\rangle$}{$\langle$Student Name$\rangle$}
+\declaration{\thetitle}{\theauthor}
 \newpage
 
 \hypersetup{pageanchor=true}
@@ -142,8 +150,11 @@ Another section, just for good measure. You can reference a table, figure or equ
 
 This is the chapter for your Literature and Technology Survey.
 
-You will wish to cite authors like \citep{Brun:03:Atomic-C:oz} or \citep{Stra:17:Combinat:qf}. Alternate
-commands are used to cite \citet{Brun:03:Atomic-C:oz} as a noun, or add text to the citation, \citep[\emph{e.g.},][]{Stra:17:Combinat:qf}.
+You will wish to cite authors like \citep{2023_ElgueaAguinaco} or \citep{2021_Lobbezoo}. Alternate
+commands are used to cite \citet{2023_ElgueaAguinaco} as a noun, or add text to the citation, \citep[\emph{e.g.},][]{2021_Lobbezoo}.
+
+Try another citation with cite \cite{2018_Fu}
+And another with citep \citep{2020_Du}
 
 %% NOTE Replace the following with chapters that are appropriate for your
 %%      style of project.  It is unlikely these will fit your project perfectly.
@@ -200,7 +211,7 @@ This is the chapter in which you review the major achievements in the light of y
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\bibliography{ExampleBibFile}
+\bibliography{ai_msc_dissertation_bib}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
