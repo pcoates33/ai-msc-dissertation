@@ -1,0 +1,45 @@
+Some notes from investigating energy based models.
+
+youtube presentation : https://www.youtube.com/watch?v=kZiW8ICg9wM gives background and examples
+
+Energy based model originates from Gibbs distribution in statistical physics
+
+    p(x) = exp(-E(x)/T) / Z
+
+ x      is the state of the system
+ E(x)   is the energy of the system at state x
+ T      is the temperature. As T heads to 0, p(x) focuses on global minima of E(x)
+ Z      is the normalising consant or partition function to make p(x) a probability density
+
+ States of low energies have high probabilities.
+
+The E(x)/T bit is changed to be a parameterised ConvNet f_theta(x), where theta denotes the parameters
+    f_theta(x) acts as a soft objective function, cost function, value function, or critic
+    it is actually a softmax probability
+
+FRAME : Filters, Random field, and Maximum Entropy
+    Filters : uses a bank of Gabor filters
+    Random field : Markov random field, Gibbs distribution
+    Maximum Entropy : distribution
+
+GRADE : Gibbs Reaction And Diffusion Equation
+    Uses Langevin dynamics
+    Has gradient ascent and diffusion (brownian motion)
+
+Uses MCMC : Markoc Chain Monte Carlo 
+    Term used a lot, so worth understanding more about this.    
+
+Training, incrementally grow the EBM from a low resolution (coarse model) to a high resolution (fine model) by
+gradually adding more layers to the ConvNet.
+
+Slide at 57 minutes shows details of cooperation between generator andEBM (discriminator) models during training using MCMC teaching. 
+    The generator is like a student - writes an original draft of a paper
+    The EBM is like a teacher - corrects the original paper
+    Slide at 2hour 19 minutes is similar, but maybe a bit nicer.
+
+Name 'Energy function' comes from Physics - I've seen it said that the lineage is through Hopfield nets and the Ising models that inspired them
+
+
+
+
+
