@@ -172,13 +172,13 @@ if __name__ == "__main__":
     # print(' '.join(f'{classes[labels[j]]:5s}' for j in range(batch_size)))
 
     # # define the network
-    # net = Net()
+    net = Net()
 
-    # train(net, trainloader, epochs=2)
+    train(net, trainloader, epochs=2)
 
     # # Save all the parameters
     PATH = data_path + '/cifar_net.pth'
-    # torch.save(net.state_dict(), PATH)
+    torch.save(net.state_dict(), PATH)
 
     # Reload the model
     net = Net()
