@@ -56,23 +56,30 @@ if __name__ == "__main__":
 
     # create a convnet
     net = BasicClassifier()
+    net.load_state_dict(torch.load('./basic_classifier_net.pth'))
 
     # using Cross Entropy 
     critereon = nn.CrossEntropyLoss()
-    optimiser = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    optimiser = torch.optim.SGD(net.parameters(), lr=0.0001, momentum=0.9)
 
-    # Need to transform image to tensor
+    # Need to transform image to tensor - this changes pixel values from [0,255] to [0,1]
+    # The normalize step changes the pixel values from [0,1] to [-1, 1]
     transformer = torchvision.transforms.Compose([
-        torchvision.transforms.ToTensor()
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
 
     # Use separate process to generate the shapes.
-    batch_size = 50
-    mini_batch_size = 4
-    q = mp.Queue()
-    shape_builder = ShapeBuilder(q, batch_size)
-    shape_builder.daemon = True
-    shape_builder.start()
+    batch_size = 100
+    mini_batch_size = 5
+    q_train = mp.Queue()
+    q_test = mp.Queue()
+    shape_builder_train = ShapeBuilder(q_train, batch_size)
+    shape_builder_train.daemon = True
+    shape_builder_train.start()
+    shape_builder_test = ShapeBuilder(q_test, batch_size)
+    shape_builder_test.daemon = True
+    shape_builder_test.start()
     
     img_count = 0
     # train the network
@@ -81,13 +88,13 @@ if __name__ == "__main__":
         running_loss = 0.0
 
         # wait for the shape_builder to finish, then get the shapes from the queue.
-        shape_builder.join(timeout=5)
-        batch = q.get(timeout=5)
+        batch = q_train.get(timeout=10)
+        shape_builder_train.join(timeout=5)
 
-        # kick off another thread to build more shapes.
-        shape_builder = ShapeBuilder(q, batch_size)
-        shape_builder.daemon = True
-        shape_builder.start()
+        # kick off another thread to build more shapes        
+        shape_builder_train = ShapeBuilder(q_train, batch_size)
+        shape_builder_train.daemon = True
+        shape_builder_train.start()
    
         img_end = 0
         # batch = create_batch(batch_size)
@@ -118,14 +125,14 @@ if __name__ == "__main__":
         match = 0
         # inputs = create_batch(batch_size)
         
-        shape_builder.join(timeout=5)
-        inputs = q.get(timeout=5)
+        inputs = q_test.get(timeout=5)
+        shape_builder_test.join(timeout=5)
 
         # kick off another 
         # TODO : add a check for last time around the loop - we don't need to build another set then.
-        shape_builder = ShapeBuilder(q, batch_size)
-        shape_builder.daemon = True
-        shape_builder.start()
+        shape_builder_test = ShapeBuilder(q_test, batch_size)
+        shape_builder_test.daemon = True
+        shape_builder_test.start()
 
         test_imgs = [transformer(img) for img, label in inputs]
         labels = torch.as_tensor([label['shape_type_idx'] for _, label in inputs])
@@ -150,4 +157,9 @@ if __name__ == "__main__":
         running_loss = 0.0
 
     print('Finished training.')
-    torch.save(net.state_dict(), './basic_classifier_net.pth')
+    torch.save(net.state_dict(), './basic_classifier_net_2.pth')
+    # terminate any remaining shape builders
+    shape_builder_train.join(timeout=5)
+    inputs = q_train.get(timeout=5)
+    shape_builder_test.join(timeout=5)
+    inputs = q_test.get(timeout=5)
