@@ -1,4 +1,4 @@
-# Use mujoco to generate some fairly basic objects - sphere, box, disc.
+# Generate images that contain multiple simple objects along with semantic templates
 from collections.abc import Callable, Iterable, Mapping
 import multiprocessing as mp
 from typing import Any
@@ -7,10 +7,11 @@ import mujoco
 import numpy as np
 import mediapy as media
 import matplotlib.pyplot as plt
+from PIL import Image
 
 class ShapeBuilder(mp.Process):
 
-    def __init__(self, q, count):
+    def __init__(self, q=None, count=0):
         super().__init__()
         self.count = count
         self.q = q
@@ -46,6 +47,7 @@ class ShapeBuilder(mp.Process):
         # position the shape, x and y both between -0.025 and 0.025
         pos_xy = np.random.randint(-25, 25, 2) / 1000
         shape_pos = "{0:.3f} {1:.3f} {2}".format(pos_xy[0], pos_xy[1], centre_z)
+        shape_offset = f"{2.2*size_xyz[0]:.3f} {2.2*size_xyz[1]:.3f} 0.0"
 
         # position the light, x and y both between -0.025 and 0.025
         pos_xy = np.random.randint(-25, 25, 2) / 100
@@ -65,9 +67,9 @@ class ShapeBuilder(mp.Process):
 
         # camera pos, vary the z and y. z can go from 0.01 with y from -0.2 to -0.1, up to 
         # 0.2 with y from -0.2 to 0.0
-        cam_z = np.random.randint(1, 21)
+        cam_z = np.random.randint(1, 41)
         # y is adjusted based on z (i.e. how high the camera is)
-        cam_y = -np.random.randint((20-cam_z)//2, 21) / 100
+        cam_y = -np.random.randint((40-cam_z)//2, 41) / 100
         cam_z = cam_z / 100
         cam_pos = "0 {0:.2f} {1:.2f}".format(cam_y, cam_z)
 
@@ -77,22 +79,25 @@ class ShapeBuilder(mp.Process):
         <asset>
             <texture name="grid" type="2d" builtin="checker" rgb1=".95 .95 .95" rgb2=".9 .9 .9" width="50" height="50"/>
             <material name="grid" texture="grid" texrepeat="128 128"/>
-            <texture name="geom_texture" type="cube" builtin="gradient" mark="random" width="128" height="128" rgb1="{3}" rgb2="{4}" markrgb="{5}" random="0.05"/>
-            <material name="geom_material" texture="geom_texture" specular="0.0" texuniform="false"/>
+            <texture name="geom_texture_1" type="cube" builtin="gradient" mark="random" width="128" height="128" rgb1="{3}" rgb2="{4}" markrgb="{5}" random="0.05"/>
+            <material name="geom_material_1" texture="geom_texture_1" specular="0.0" texuniform="false"/>
+            <texture name="geom_texture_2" type="cube" builtin="gradient" mark="random" width="128" height="128" rgb1="{3}" rgb2="{4}" markrgb="{5}" random="0.05"/>
+            <material name="geom_material_2" texture="geom_texture_2" specular="0.0" texuniform="false"/>
         </asset>
 
         <worldbody>
-            <geom size=".4 .4 .01" type="plane" material="grid"/>
-            <light diffuse=".2 .2 .2" pos="{7}" mode="targetbody" target="camera_target"/>
+            <geom size=".6 .6 .01" type="plane" material="grid"/>
+            <light diffuse=".5 .5 .5" pos="{7}" mode="targetbody" target="camera_target"/>
             <camera name="closeup" pos="{8}" mode="targetbody" target="camera_target"/>
             <body name="camera_target" pos="0 0 0"/>
             <body name="shape" pos="{2}">
-            <geom name="one" type="{0}" size="{1}" material="geom_material" euler="{6}"/>
+                <geom name="one" type="{0}" size="{1}" material="geom_material_1" euler="{6}" pos="0.0 0.0 0.0"/>
+                <geom name="two" type="{0}" size="{1}" material="geom_material_2" euler="{6}" pos="{9}"/>
             </body>
         </worldbody>
 
         </mujoco>
-        """.format(shape_type, size, shape_pos, rgb_1, rgb_2, rgb_mark, rotate, light_pos, cam_pos)
+        """.format(shape_type, size, shape_pos, rgb_1, rgb_2, rgb_mark, rotate, light_pos, cam_pos, shape_offset)
 
         # print(shape_xml)
         # print('{0} {1}'.format(['red','green','blue'][colour_main], s_type))
@@ -116,41 +121,51 @@ class ShapeBuilder(mp.Process):
 if __name__ == "__main__":
     # main function
 
-    q = mp.Queue()
-    shape_builder = ShapeBuilder(q, 100)
-    shape_builder.daemon = True
-    shape_builder.start()
+    # Shape builder can run in separate thread
+    # q = mp.Queue()
+    # shape_builder = ShapeBuilder()
+    # shape_builder.daemon = True
+    # shape_builder.start()
 
-    print('join the shape_builder')
-    shape_builder.join(timeout=5)
-    print('get shapes from queue')
-    shapes = q.get(timeout=5)
+    # print('join the shape_builder')
+    # shape_builder.join(timeout=5)
+    # print('get shapes from queue')
+    # shapes = q.get(timeout=5)
 
+    # Or just use it to create shapes like so...
+    shape_builder = ShapeBuilder()
+    shapes = [shape_builder.generate_shape(flip=False) for i in range(4)]
+    
     # create a shape
-    shape_img, shape_label = shapes[0]
+    # shape_img, shape_label = shapes[0]
 
     # look at some details of what is returned
-    print(shape_label)
-    print(shape_img.shape)
-    print(f'{shape_img[0][0][0]}, {shape_img[1][0][0]}, {shape_img[2][0][0]}')
+    print(f'number of shapes = {len(shapes)}')
+    # print(shape_label)
+    # print(shape_img.shape)
+    # print(f'{shape_img[0][0][0]}, {shape_img[1][0][0]}, {shape_img[2][0][0]}')
     # media.show_image(shape_img)
-    import psutil
-    import gc
-    print(psutil.virtual_memory())
-    mem_available_init = psutil.virtual_memory().available
-    for i in range(20):
-        shape_builder = ShapeBuilder(q, 100)
-        shape_builder.daemon = True
-        shape_builder.start()
+    for shape_img, shape_label in shapes:
+        img = Image.fromarray(shape_img)
+        img.show()
+        print(shape_label)
+    # import psutil
+    # import gc
+    # print(psutil.virtual_memory())
+    # mem_available_init = psutil.virtual_memory().available
+    # for i in range(20):
+    #     shape_builder = ShapeBuilder(q, 100)
+    #     shape_builder.daemon = True
+    #     shape_builder.start()
 
-        shape_builder.join(timeout=5)
-        shapes = q.get(timeout=5)
-        # batch = create_batch(100)
-        del shapes
-        gc.collect()
-        # print(f'batch len : {len(shapes)}')
-        mem_available = psutil.virtual_memory().available - mem_available_init
-        print(f'% mem used = {psutil.virtual_memory().percent}%. Change in mem available since start = {mem_available/1e6:,.3f} MB')
+    #     shape_builder.join(timeout=5)
+    #     shapes = q.get(timeout=5)
+    #     # batch = create_batch(100)
+    #     del shapes
+    #     gc.collect()
+    #     # print(f'batch len : {len(shapes)}')
+    #     mem_available = psutil.virtual_memory().available - mem_available_init
+    #     print(f'% mem used = {psutil.virtual_memory().percent}%. Change in mem available since start = {mem_available/1e6:,.3f} MB')
 
     # for shape_img, shape_label in batch:
     #     print(shape_label)
