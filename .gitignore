@@ -5,6 +5,7 @@
 .ipynb_checkpoints
 
 code/investigations/data/
+code/investigations/segmentation/temp_imgs
 
 # saved pytorch networks
 *.pth
