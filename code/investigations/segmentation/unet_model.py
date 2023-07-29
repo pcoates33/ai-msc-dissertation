@@ -100,8 +100,7 @@ class UNET(nn.Module):
 
         self.final_conv = nn.Sequential(
                 DoubleConvolution(features*2, features),
-                nn.Conv2d(features, out_channels, kernel_size=1),
-                nn.BatchNorm2d(out_channels)
+                nn.Conv2d(features, out_channels, kernel_size=1)
         )
         
     def forward(self, x):

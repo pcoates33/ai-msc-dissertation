@@ -42,7 +42,7 @@ def to_greyscale(multi_channel, grey_values=None):
         # Set points with value of 1.0 that are not already set to the grey_value
         greyscale.masked_fill_(channel.eq(1.0) * greyscale.eq(0), grey_value)
         # If the point on the greyscale has already been set by another channel, then reset it to 255
-        greyscale.masked_fill_(channel.eq(1.0) * greyscale.ne(grey_value), 255)
+        greyscale.masked_fill_(channel.eq(1.0) * greyscale.ne(grey_value), 255.0)
         
     return greyscale
 
@@ -92,8 +92,49 @@ def test_to_greyscale():
             [50.0, 150.0, 255.0, 50.0],
             [0.0, 100.0, 255.0, 100.0]
         ])))
+    
+def test_show_greyscale_image():
+    original = torch.zeros([4, 64, 64])
+    # top left
+    for x in range(4, 31):
+        for y in range(4, 31):
+            original[0, y, x] = 1.0
+    # top right
+    for x in range(38, 57):
+        for y in range(8, 27):
+            original[1, y, x] = 1.0
+    # bottom left
+    for x in range(12, 23):
+        for y in range(42, 53):
+            original[2, y, x] = 1.0
+    # bottom left
+    for x in range(44, 49):
+        for y in range(44, 49):
+            original[3, y, x] = 1.0
+    greyscale = to_greyscale(original, [200, 150, 100, 50])
+    pixel_counts = {}
+    for x in range(greyscale.shape[0]):
+        for y in range(greyscale.shape[1]):
+            pixel_value = greyscale[x, y].item()
+            if pixel_value not in pixel_counts:
+                pixel_counts[pixel_value] = 0
+            pixel_counts[pixel_value] += 1
+
+    print(f"Pixel counts greyscale tensor = {pixel_counts}")
+
+    img = torchvision.transforms.functional.to_pil_image(greyscale, mode='F')
+    img = img.convert('L')
+    pixel_counts = {}
+    for pixel_value in list(img.getdata()):
+        if pixel_value not in pixel_counts:
+            pixel_counts[pixel_value] = 0
+        pixel_counts[pixel_value] += 1
+    
+    print(f"Pixel counts in image = {pixel_counts}")
+    img.show()
 
 if __name__ == "__main__":
     # main function
     test_split_greyscale()
     test_to_greyscale()
+    test_show_greyscale_image()

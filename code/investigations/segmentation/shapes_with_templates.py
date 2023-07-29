@@ -9,9 +9,140 @@ import mediapy as media
 import matplotlib.pyplot as plt
 from PIL import Image
 
+class XmlBuilder():
+
+    def __init__(self, assets=None, bodies=None, masks=None):
+        self.assets = assets
+        self.bodies = bodies
+        self.masks = masks
+
+        self.light_pos = None
+        self.cam_pos = None
+        self.body_pos = None
+        self.bg_texture = None  
+        self.bg_colour = 0.94
+        
+        self.with_new_background()
+        self.with_new_camera_angle()
+        self.with_new_body_pos()
+        self.with_new_light_pos()
+
+    def with_new_background(self):
+        # modify the background colour slightly
+
+        # Cycle through flat, checker and gradient.
+        # TODO : maybe add more options for backgrounds.
+        # if self.bg_texture == 'flat':
+        #     self.bg_texture = 'checker'
+        # elif self.bg_texture == 'checker':
+        #     self.bg_texture = 'gradient'
+        # else:
+        #     self.bg_texture = 'flat'
+        self.bg_colour -= 0.05
+
+    def with_initial_background(self):
+        self.bg_texture = 'flat'
+        self.bg_colour = 0.94
+
+    def with_new_camera_angle(self): 
+        # set new camera angle for next time
+        # Vary the z and y. z can go from 0.01 with y from -0.2 to -0.1, up to 
+        # 0.2 with y from -0.2 to 0.0
+        cam_z = np.random.randint(1, 31)
+        # y is adjusted based on z (i.e. how high the camera is)
+        cam_y = -np.random.randint((50-cam_z)//2, 51) / 100
+        cam_z = cam_z / 100
+        self.cam_pos = f"0 {cam_y:.2f} {cam_z:.2f}"
+
+    def with_new_body_pos(self):
+        # position the shape, x and y both between -0.025 and 0.025
+        pos_xy = np.random.randint(-5, 5, 2) / 1000
+        self.body_pos = f"{pos_xy[0]:.3f} {pos_xy[1]:.3f} 0.0"
+
+    def with_new_light_pos(self):
+        # position the light, x and y both between -0.025 and 0.025
+        pos_xy = np.random.randint(-25, 25, 2) / 100
+        self.light_pos = "{0:.3f} {1:.3f} 1.0".format(pos_xy[0], pos_xy[1])
+
+    def build_shape_xml(self):
+        bg_rgb1 = f"{self.bg_colour:0.3f} {self.bg_colour:0.3f} {self.bg_colour:0.3f}"
+        bg_rgb2 = f"{self.bg_colour-0.03:0.3f} {self.bg_colour-0.03:0.3f} {self.bg_colour-0.03:0.3f}"
+        return f"""
+        <mujoco model="shape">
+        <visual>
+            <headlight active="1" ambient="0.2 0.2 0.2" diffuse="0.1 0.1 0.1" specular="0.0 0.0 0.0"/>
+        </visual>
+
+        <asset>
+            <texture name="grid" type="2d" builtin="{self.bg_texture}" rgb1="{bg_rgb1}" rgb2="{bg_rgb2}" width="500" height="500"/>
+            <material name="grid" texture="grid" texrepeat="15 15" />
+            {''.join(self.assets)}
+        </asset>
+
+        <worldbody>
+            <geom size=".6 .6 .01" type="plane" material="grid"/>
+            <light active="true" diffuse=".3 .3 .3" pos="{self.light_pos}" mode="targetbody" target="camera_target" cutoff="90"/>
+            <light active="true" diffuse=".2 .2 .2" pos="0 0 4.0" mode="targetbody" target="camera_target" castshadow="false" cutoff="45"/>
+            <camera name="closeup" pos="{self.cam_pos}" mode="targetbody" target="camera_target"/>
+            <body name="camera_target" pos="0 0 0"/>
+            <body name="shape" pos="{self.body_pos}">
+                {''.join(self.bodies)}
+            </body>
+        </worldbody>
+
+        </mujoco>
+        """
+    
+    def build_mask_xml(self):
+        light_distance = "2.0"
+        return f"""
+        <mujoco model="mask">
+        <visual>
+            <headlight active="0" ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" specular="0.0 0.0 0.0"/>
+        </visual>
+
+        <asset>
+            <texture name="grid" type="2d" builtin="checker" rgb1=".95 .95 .95" rgb2=".9 .9 .9" width="50" height="50"/>
+            <material name="grid" texture="grid" texrepeat="128 128"/>
+            {''.join(self.masks)}
+        </asset>
+
+        <worldbody>
+            <!-- lights from the sides -->
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="{light_distance} {light_distance} 0.0" mode="fixed" dir="-{light_distance} -{light_distance} 0" castshadow="false"/>
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="0.0 {light_distance} 0.0" mode="fixed" dir="0 -{light_distance} 0" castshadow="false"/>
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="{light_distance} -{light_distance} 0.0" mode="fixed" dir="-{light_distance} {light_distance} 0" castshadow="false"/>
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="0.0 -{light_distance} 0.0" mode="fixed" dir="0 {light_distance} 0" castshadow="false"/>
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="-{light_distance} {light_distance} 0.0" mode="fixed" dir="{light_distance} -{light_distance} 0" castshadow="false"/>
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="-{light_distance} 0.0 0.0" mode="fixed" dir="{light_distance} 0 0" castshadow="false"/>
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="-{light_distance} -{light_distance} 0.0" mode="fixed" dir="{light_distance} {light_distance} 0" castshadow="false"/>
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="-{light_distance} 0.0 0.0" mode="fixed" dir="{light_distance} 0 0" castshadow="false"/>
+
+            <!-- lights from above -->
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="0.5 0.5 {light_distance}" mode="fixed" dir="0 0 -{light_distance}" castshadow="false"/>
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="-0.5 0.5 {light_distance}" mode="fixed" dir="0 0 -{light_distance}" castshadow="false"/>
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="0.5 -0.5 {light_distance}" mode="fixed" dir="0 0 -{light_distance}" castshadow="false"/>
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="-0.5 -0.5 {light_distance}" mode="fixed" dir="0 0 -{light_distance}" castshadow="false"/>
+            
+            <!-- lights from below -->
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="0.5 0.5 -{light_distance}" mode="fixed" dir="0 0 {light_distance}" castshadow="false"/>
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="-0.5 0.5 -{light_distance}" mode="fixed" dir="0 0 {light_distance}" castshadow="false"/>
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="0.5 -0.5 -{light_distance}" mode="fixed" dir="0 0 {light_distance}" castshadow="false"/>
+            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="-0.5 -0.5 -{light_distance}" mode="fixed" dir="0 0 {light_distance}" castshadow="false"/>
+        
+            <camera name="closeup" pos="{self.cam_pos}" mode="targetbody" target="camera_target"/>
+            <body name="camera_target" pos="0 0 0"/>
+            <body name="shape" pos="{self.body_pos}">
+                {''.join(self.bodies)}
+            </body>
+        </worldbody>
+
+        </mujoco>
+        """
+
 class ShapeBuilder(mp.Process):
 
-    def __init__(self, q=None, count=0, min_shapes=1, max_shapes=5):
+    def __init__(self, q=None, count=0, min_shapes=1, max_shapes=5, backgrounds=2, camera_angles=5):
         super().__init__()
         self.count = count
         self.q = q
@@ -19,11 +150,16 @@ class ShapeBuilder(mp.Process):
         self.min_shapes = min_shapes
         # To easily space out the shapes, it's limited to 7 in total.
         self.max_shapes = min(7, max_shapes)
+        self.backgrounds = backgrounds
+
+        self.camera_angles = camera_angles
 
     def run(self):
         # Create the shapes and labels and add them to the q, then we just stop.
-        shapes = [self.generate_shape(flip=False) for i in range(self.count)]
-        self.q.put(shapes)
+        shapes = []
+        while len(shapes) < self.count:
+            shapes += self.generate_shapes()
+        self.q.put(shapes[0: self.count])
 
     def new_geom(self, offset=None):
         # Create a new geom for the mujoco xml
@@ -31,7 +167,8 @@ class ShapeBuilder(mp.Process):
         # By default the image is flipped to give shape of '3, 480, 640'
         # Set flip=False to get an array of pixels instead. i.e. '480, 640, 3'
 
-        shape_types = ['sphere', 'box', 'cylinder', 'disc']
+        # shape_types = ['sphere', 'box', 'cylinder', 'disc']
+        shape_types = ['box', 'disc', 'sphere', 'cylinder']
         shape_type_idx = np.random.randint(0, len(shape_types))
         shape_type = shape_types[shape_type_idx]
         s_type = shape_type
@@ -77,7 +214,7 @@ class ShapeBuilder(mp.Process):
         rgb_2 = '{0:.2f} {1:.2f} {2:.2f}'.format(rgb[0]-0.2, rgb[1]-0.2, rgb[2]-0.2)
 
         # Different values for different shapes
-        mask_val = [0.2, 0.4, 0.6, 0.8][shape_type_idx]
+        mask_val = [0.8, 0.6, 0.4, 0.2][shape_type_idx]
         mask_rgb = '{0:.2f} {1:.2f} {2:.2f}'.format(mask_val, mask_val, mask_val)
         
         if offset is None:
@@ -116,30 +253,36 @@ class ShapeBuilder(mp.Process):
         available_angles = [angle for angle in available_angles if angle+360 < low or angle+360 > high]
         return offset_angle, available_angles
             
-    def generate_shape(self, img_size_y=480, img_size_x=640, flip=True):
-        # Generate disc, cube, or sphere
-        # By default the image is flipped to give shape of '3, 480, 640'
-        # Set flip=False to get an array of pixels instead. i.e. '480, 640, 3'
+    def generate_shapes(self, img_size_y=480, img_size_x=640):
+        # Returns list of (img, mask, label). The number in the list depends on number of backgrounds
+        # and camera angles defined in the ShapeBuilder. And is equal to the product of the two.
+        label = {'to_do': 'set to something useful'} # TODO : generate a useful label.
 
-        # position the shape, x and y both between -0.025 and 0.025
-        pos_xy = np.random.randint(-5, 5, 2) / 1000
-        body_pos = f"{pos_xy[0]:.3f} {pos_xy[1]:.3f} 0.0"
+        xml_builder = self.generate_xml_builder()
 
-        # position the light, x and y both between -0.025 and 0.025
-        pos_xy = np.random.randint(-25, 25, 2) / 100
-        light_pos_1 = "{0:.3f} {1:.3f} 0.3".format(pos_xy[0], pos_xy[1])
-        light_pos_2 = "{0:.3f} {1:.3f} 0.3".format(-pos_xy[0], pos_xy[1])
-        light_pos_3 = "{0:.3f} {1:.3f} 0.3".format(pos_xy[0], -pos_xy[1])
-        light_pos_4 = "{0:.3f} {1:.3f} 0.3".format(-pos_xy[0], -pos_xy[1])
-        
-        # camera pos, vary the z and y. z can go from 0.01 with y from -0.2 to -0.1, up to 
-        # 0.2 with y from -0.2 to 0.0
-        cam_z = np.random.randint(1, 31)
-        # y is adjusted based on z (i.e. how high the camera is)
-        cam_y = -np.random.randint((50-cam_z)//2, 51) / 100
-        cam_z = cam_z / 100
-        cam_pos = "0 {0:.2f} {1:.2f}".format(cam_y, cam_z)
+        shapes = []        
+        # 
+        for _ in range(self.camera_angles):
+            mask_xml = xml_builder.build_mask_xml()
+            shape_mask = self.render_xml(mask_xml, img_size_y, img_size_x)
+            shape_mask = np.moveaxis(shape_mask, -1, 0)
+            # Smoothing gives consistent grey to a shape. Just take single layer of the 
+            # mask image as rgb will all be the same.
+            shape_mask = self.smooth_mask(shape_mask[0])
+            xml_builder.with_initial_background()
 
+            for _ in range(self.backgrounds):
+                shape_xml = xml_builder.build_shape_xml()
+                shape_img = self.render_xml(shape_xml, img_size_y, img_size_x)
+                shapes.append((shape_img, shape_mask, label))
+                xml_builder.with_new_background()
+
+            xml_builder.with_new_camera_angle() # set new camera angle for next time
+
+        return shapes
+
+    def generate_xml_builder(self):
+        # Generate object geom (disc, cube, sphere or cylinder)
         # drop the first one in the middle
         asset, mask, body, label, size_xyz = self.new_geom()
         assets = [asset]
@@ -147,7 +290,6 @@ class ShapeBuilder(mp.Process):
         bodies = [body]
         labels = [label]
         # determine the 'radius' of the shape from the x and y
-        # TODO : handle laying down cyclinders as they need to use x and z.
         rho = np.hypot(size_xyz[0], size_xyz[1])
             
         # offset subsequent geom shapes so that it doesn't overlap the first.
@@ -162,95 +304,8 @@ class ShapeBuilder(mp.Process):
             masks.append(mask)
             bodies.append(body)
             labels.append(label)
-        
-        shape_xml = f"""
-        <mujoco model="shape">
-        <visual>
-            <headlight active="1" ambient="0.2 0.2 0.2" diffuse="0.1 0.1 0.1" specular="0.0 0.0 0.0"/>
-        </visual>
 
-        <asset>
-            <texture name="grid" type="2d" builtin="checker" rgb1=".95 .95 .95" rgb2=".9 .9 .9" width="50" height="50"/>
-            <material name="grid" texture="grid" texrepeat="128 128"/>
-            {''.join(assets)}
-        </asset>
-
-        <worldbody>
-            <geom size=".6 .6 .01" type="plane" material="grid"/>
-            <light diffuse=".7 .7 .7" pos="{light_pos_1}" mode="targetbody" target="camera_target"/>
-            <camera name="closeup" pos="{cam_pos}" mode="targetbody" target="camera_target"/>
-            <body name="camera_target" pos="0 0 0"/>
-            <body name="shape" pos="{body_pos}">
-                {''.join(bodies)}
-            </body>
-        </worldbody>
-
-        </mujoco>
-        """
-
-        light_distance = 2.0
-        mask_xml = f"""
-        <mujoco model="mask">
-        <visual>
-            <headlight active="0" ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" specular="0.0 0.0 0.0"/>
-        </visual>
-
-        <asset>
-            <texture name="grid" type="2d" builtin="checker" rgb1=".95 .95 .95" rgb2=".9 .9 .9" width="50" height="50"/>
-            <material name="grid" texture="grid" texrepeat="128 128"/>
-            {''.join(masks)}
-        </asset>
-
-        <worldbody>
-            <!-- lights from the sides -->
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="{light_distance:.3f} {light_distance:.3f} 0.0" mode="fixed" dir="{-light_distance:.3f} {-light_distance:.3f} 0" castshadow="false"/>
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="0.0 {light_distance:.3f} 0.0" mode="fixed" dir="0 {-light_distance:.3f} 0" castshadow="false"/>
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="{light_distance:.3f} {-light_distance:.3f} 0.0" mode="fixed" dir="{-light_distance:.3f} {light_distance:.3f} 0" castshadow="false"/>
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="0.0 {-light_distance:.3f} 0.0" mode="fixed" dir="0 {light_distance:.3f} 0" castshadow="false"/>
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="{-light_distance:.3f} {light_distance:.3f} 0.0" mode="fixed" dir="{light_distance:.3f} {-light_distance:.3f} 0" castshadow="false"/>
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="{-light_distance:.3f} 0.0 0.0" mode="fixed" dir="{light_distance:.3f} 0 0" castshadow="false"/>
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="{-light_distance:.3f} {-light_distance:.3f} 0.0" mode="fixed" dir="{light_distance:.3f} {light_distance:.3f} 0" castshadow="false"/>
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="{-light_distance:.3f} 0.0 0.0" mode="fixed" dir="{light_distance:.3f} 0 0" castshadow="false"/>
-
-            <!-- lights from above -->
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="0.5 0.5 {light_distance:.3f}" mode="fixed" dir="0 0 {-light_distance:.3f}" castshadow="false"/>
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="-0.5 0.5 {light_distance:.3f}" mode="fixed" dir="0 0 {-light_distance:.3f}" castshadow="false"/>
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="0.5 -0.5 {light_distance:.3f}" mode="fixed" dir="0 0 {-light_distance:.3f}" castshadow="false"/>
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="-0.5 -0.5 {light_distance:.3f}" mode="fixed" dir="0 0 {-light_distance:.3f}" castshadow="false"/>
-            
-            <!-- lights from below -->
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="0.5 0.5 {-light_distance:.3f}" mode="fixed" dir="0 0 {light_distance:.3f}" castshadow="false"/>
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="-0.5 0.5 {-light_distance:.3f}" mode="fixed" dir="0 0 {light_distance:.3f}" castshadow="false"/>
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="0.5 -0.5 {-light_distance:.3f}" mode="fixed" dir="0 0 {light_distance:.3f}" castshadow="false"/>
-            <light ambient="0.3 0.3 0.3" diffuse="0.3 0.3 0.3" pos="-0.5 -0.5 {-light_distance:.3f}" mode="fixed" dir="0 0 {light_distance:.3f}" castshadow="false"/>
-        
-            <camera name="closeup" pos="{cam_pos}" mode="targetbody" target="camera_target"/>
-            <body name="camera_target" pos="0 0 0"/>
-            <body name="shape" pos="{body_pos}">
-                {''.join(bodies)}
-            </body>
-        </worldbody>
-
-        </mujoco>
-        """
-
-        # print(shape_xml)
-        # print('{0} {1}'.format(['red','green','blue'][colour_main], s_type))
-        # TODO : work out how to set up the label with sensible data
-        label = {'cam_pos': cam_pos, 'labels': labels}
-
-        shape_img = self.render_xml(shape_xml, img_size_y, img_size_x)
-        shape_mask = self.render_xml(mask_xml, img_size_y, img_size_x)
-        # Just take single layer of the mask image as rgb will all be the same.
-        shape_mask = np.moveaxis(shape_mask, -1, 0)
-        shape_mask = shape_mask[0]
-        # Smoothing gives consistent grey to a shape.
-        shape_mask = self.smooth_mask(shape_mask)
-        
-        if flip:
-            # flip the pixel's rgb from last to first
-            shape_img = np.moveaxis(shape_img, -1, 0)
-        return shape_img, shape_mask, label
+        return XmlBuilder(assets, bodies, masks)
     
     def smooth_mask(self, mask):
         # Now reduce it down to single values per shape. Despite the lighting, Mujoco renders a bit of gradient and shadow.
@@ -316,8 +371,8 @@ if __name__ == "__main__":
     # shapes = q.get(timeout=5)
 
     # Or just use it to create shapes like so...
-    shape_builder = ShapeBuilder(min_shapes=1, max_shapes=7)
-    shapes = [shape_builder.generate_shape(flip=False) for i in range(1)]
+    shape_builder = ShapeBuilder(min_shapes=1, max_shapes=7, backgrounds=2, camera_angles=2)
+    shapes = shape_builder.generate_shapes()
     
     # create a shape
     # shape_img, shape_label = shapes[0]

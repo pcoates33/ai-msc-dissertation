@@ -14,20 +14,31 @@ import time
 from PIL import Image
 from utils import split_greyscale, to_greyscale
 
+def log(str):
+    time_now = time.strftime('%H:%M:%S')
+    # print(f'{time_now}: {str}')
+    
 
 if __name__ == "__main__":
     # main function
+    log('Started.')
+
+    device = torch.device('cuda' if torch.has_cuda else 'cpu')
+    device = torch.device('mps' if torch.has_mps else 'cpu')
 
     # create a convnet
-    net = UNET(out_channels=4)  # Allow segmentation of 4 different objects
+    net = UNET(out_channels=4).to(device)  # Try boxes and discs
     # net.load_state_dict(torch.load('./image_segmentation_net.pth'))
 
     # using Cross Entropy 
-    critereon = nn.CrossEntropyLoss()
+    # critereon = nn.CrossEntropyLoss()
+    # Try different loss function - Binary as we're just looking for one shape at the moment.
+    critereon = nn.BCEWithLogitsLoss()
     optimiser = torch.optim.Adam(net.parameters(), lr=0.0001)
 
     # Need to transform image to tensor - this changes pixel values from [0,255] to [0,1]
     # The normalize step changes the pixel values from [0,1] to [-1, 1]
+    # TODO : see how well it behaves without the normalise
     transformer_rgb = torchvision.transforms.Compose([
         torchvision.transforms.ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -38,32 +49,36 @@ if __name__ == "__main__":
     # ])
 
     # Use separate process to generate the shapes.
-    batch_size =    10
+    batch_size = 50
+    test_batch_size = 10
     mini_batch_size = 5
     q_train = mp.Queue()
     q_test = mp.Queue()
     shape_builder_train = ShapeBuilder(q_train, batch_size)
     shape_builder_train.daemon = True
     shape_builder_train.start()
-    shape_builder_test = ShapeBuilder(q_test, batch_size)
+    shape_builder_test = ShapeBuilder(q_test, test_batch_size)
     shape_builder_test.daemon = True
     shape_builder_test.start()
     
     img_count = 0
     # train the network
-    for epoch in range(500):
+    for epoch in range(1000):
 
         running_loss = 0.0
 
         # wait for the shape_builder to finish, then get the shapes from the queue.
+        log('Wait for batch of shape images.')
         batch = q_train.get(timeout=20)
         shape_builder_train.join(timeout=10)
+        log('Got batch.')
 
         # kick off another thread to build more shapes        
         shape_builder_train = ShapeBuilder(q_train, batch_size)
         shape_builder_train.daemon = True
         shape_builder_train.start()
    
+        log('Process batch.')
         img_end = 0
         # batch = create_batch(batch_size)
         while img_end < batch_size:
@@ -73,11 +88,13 @@ if __name__ == "__main__":
             shape_masks = []
             for img, mask, label in batch[img_start:img_end]:
                 shape_images.append(transformer_rgb(img))
-                shape_masks.append(split_greyscale(torch.Tensor(mask), [(25, 75), (75, 125), (125, 175), (175, 225)]))
+                # shape_masks.append(split_greyscale(torch.Tensor(mask), [(25, 75), (75, 125), (125, 175), (175, 225)]))
+                # Just take the boxes out of the mask.
+                shape_masks.append(split_greyscale(torch.Tensor(mask), [(175, 225), (125, 175), (75, 125), (25, 75)]))
 
             # Swap from lists to Tensors
-            shape_images = torch.stack(shape_images)
-            shape_masks = torch.stack(shape_masks)
+            shape_images = torch.stack(shape_images).to(device)
+            shape_masks = torch.stack(shape_masks).to(device)
 
             img_count += img_end - img_start
             
@@ -85,46 +102,67 @@ if __name__ == "__main__":
             optimiser.zero_grad()
 
             # forward + backward + optimise
+            log('Before Forward.')
             predictions = net.forward(shape_images)
+            log('After forward')
+            
             loss = critereon(predictions, shape_masks)
+            log('After loss function')
             loss.backward()
+            log('after backwards.')
             optimiser.step()
+            log('after optimiser step')
 
             running_loss += loss.item()
+            del predictions
+            del shape_masks
+            del shape_images
         
         # See how many we get right
         match = 0
         # inputs = create_batch(batch_size)
         
-        inputs = q_test.get(timeout=10)
+        batch_for_test = q_test.get(timeout=10)
         shape_builder_test.join(timeout=10)
 
         # kick off another 
         # TODO : add a check for last time around the loop - we don't need to build another set then.
-        shape_builder_test = ShapeBuilder(q_test, batch_size)
+        shape_builder_test = ShapeBuilder(q_test, test_batch_size)
         shape_builder_test.daemon = True
         shape_builder_test.start()
 
+        log('Before accuracy test.')
         with torch.no_grad():
-            test_imgs = []
-            test_masks = []
-            for img, mask, label in inputs:
-                test_imgs.append(transformer_rgb(img))
-                test_masks.append(split_greyscale(torch.Tensor(mask), [(25, 75), (75, 125), (125, 175), (175, 225)]))
-            test_imgs = torch.stack(test_imgs)
-            test_masks = torch.stack(test_masks)
+            matched = 0
+            out_of = 0
+            img_end = 0
+            # batch = create_batch(batch_size)
+            while img_end < test_batch_size:
+                img_start = img_end
+                img_end = min(img_start + mini_batch_size, test_batch_size)
+                test_imgs = []
+                test_masks = []
+                for img, mask, label in batch_for_test[img_start:img_end]:
+                    test_imgs.append(transformer_rgb(img))
+                    # test_masks.append(split_greyscale(torch.Tensor(mask), [(25, 75), (75, 125), (125, 175), (175, 225)]))
+                    test_masks.append(split_greyscale(torch.Tensor(mask), [(175, 225), (125, 175), (75, 125), (25, 75)]))
+                test_imgs = torch.stack(test_imgs).to(device)
+                test_masks = torch.stack(test_masks).to(device)
 
-            predictions = net(test_imgs)
+                predictions = net(test_imgs)
 
-        # Put them in range 0 to 1
-        predictions = torch.sigmoid(predictions)
-        # Then force to be 0 or 1 for checking accuracy
-        predictions.masked_fill_(predictions.gt(0.5), 1.0)
-        predictions.masked_fill_(predictions.lt(0.5), 0.0)
+                log('Got predictions.')
+                # Put them in range 0 to 1
+                predictions = torch.sigmoid(predictions)
+                # Then force to be 0 or 1 for checking accuracy
+                predictions.masked_fill_(predictions.ge(0.5), 1.0)
+                predictions.masked_fill_(predictions.lt(0.5), 0.0)
 
-        matched = (predictions == test_masks).sum()
-        out_of = torch.numel(predictions)
-        accuracy = matched*100/out_of        
+                matched += (predictions == test_masks).sum()
+                out_of += torch.numel(predictions)
+
+            accuracy = matched*100/out_of   
+            log('Calculated accuracy')     
 
         # abs_diff = torch.abs(predictions - test_masks)
         # total_diff = torch.sum(abs_diff)
@@ -133,14 +171,16 @@ if __name__ == "__main__":
         # closer to zero is better for the difference
 
         # TODO : save the images...
-        img = torchvision.transforms.functional.to_pil_image(inputs[0][0])
+        img = torchvision.transforms.functional.to_pil_image(batch_for_test[-1][0])
         # # the test_masks and predictions now have multiple channels, so merge them back into greyscale image.
 
-        mask = to_greyscale(test_masks[0], [50, 100, 150, 200])
-        pred = to_greyscale(predictions[0], [50, 100, 150, 200])
+        mask = to_greyscale(test_masks[-1].to('cpu'), [200, 150, 100, 50])
+        pred = to_greyscale(predictions[-1].to('cpu'), [200, 150, 100, 50])
 
-        mask = torchvision.transforms.functional.to_pil_image(mask)
-        pred = torchvision.transforms.functional.to_pil_image(pred)
+        mask = torchvision.transforms.functional.to_pil_image(mask, mode='F')
+        mask = mask.convert('L')
+        pred = torchvision.transforms.functional.to_pil_image(pred, mode='F')
+        pred = pred.convert('L')
         # img.show()
         # mask.show()
         # pred.show()
@@ -148,6 +188,8 @@ if __name__ == "__main__":
         img.save(f"{imgs_path}/img_{img_count}.png","PNG")
         mask.save(f"{imgs_path}/mask_{img_count}.png","PNG")
         pred.save(f"{imgs_path}/pred_{img_count}.png","PNG")
+
+        log('images saved')
 
         # TODO compare predictions against test_masks.
         # _, predicted = torch.max(outputs.data, 1)
@@ -161,6 +203,9 @@ if __name__ == "__main__":
         #     if actual == predicted:
         #         match += 1
 
+        del predictions
+        del test_masks
+        del test_imgs
         # print statistics
         time_now = time.strftime('%H:%M:%S')
         # print(f'{time_now} [epoch:{epoch}] total images = {img_count} : Running loss for last {batch_size} images = {running_loss:.3f}. Test matched {match} of {len(inputs)} ')
