@@ -142,7 +142,7 @@ class XmlBuilder():
 
 class ShapeBuilder(mp.Process):
 
-    def __init__(self, q=None, count=0, min_shapes=1, max_shapes=5, backgrounds=2, camera_angles=5):
+    def __init__(self, q=None, count=0, min_shapes=3, max_shapes=6, backgrounds=2, camera_angles=5):
         super().__init__()
         self.count = count
         self.q = q

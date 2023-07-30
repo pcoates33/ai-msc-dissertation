@@ -47,6 +47,17 @@ def to_greyscale(multi_channel, grey_values=None):
     return greyscale
 
 
+def calculate_dice_score(pred, actual):
+    # Assumes pred and actual are tensors of the same shape.
+    # Tensors should have values that are 0 or 1, The 0 representing the background and 1 for the object.
+    # Gets the number of 1's that are in the same positions in pred and actual, doubles it, then
+    # divides by the total number of 1's in combined pred and actual
+    dice_numerator = 2 * torch.sum(pred * actual)
+    dice_denominator = torch.sum(pred) + torch.sum(actual)
+    dice_score = (dice_numerator + 1) / (dice_denominator + 1)
+    return dice_score.item()
+
+
 def test_split_greyscale():
     mask = torch.randint(low=0, high=266, size=(1, 10, 20), dtype=torch.float32)
     actual = split_greyscale(mask, [(50, 100), (150, 250)])
@@ -133,8 +144,40 @@ def test_show_greyscale_image():
     print(f"Pixel counts in image = {pixel_counts}")
     img.show()
 
+
+def test_dice_score():
+
+    pred = torch.Tensor([
+        [
+            [1.0, 1.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0]
+        ],[
+            [0.0, 1.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0, 1.0]
+        ]
+    ])
+    actual = torch.Tensor([
+        [
+            [0.0, 1.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0]
+        ],[
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 1.0, 1.0, 1.0]
+        ]
+    ])
+
+    dice_score = calculate_dice_score(pred, actual)
+    print(f'dice score = {dice_score:0.3f}')
+    
+    assert f"{dice_score:0.3f}" == "0.789", "dice score not as expected."
+
 if __name__ == "__main__":
     # main function
     test_split_greyscale()
     test_to_greyscale()
     test_show_greyscale_image()
+    test_dice_score()

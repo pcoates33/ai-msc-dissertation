@@ -6,6 +6,7 @@
 
 code/investigations/data/
 code/investigations/segmentation/temp_imgs
+code/investigations/segmentation/checkpoints
 
 # saved pytorch networks
 *.pth
