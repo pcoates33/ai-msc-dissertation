@@ -80,7 +80,7 @@ if __name__ == "__main__":
     img_count = 0
     # train the network
     epoch_checkpoint += 1
-    last_epoch = epoch_checkpoint + 79
+    last_epoch = epoch_checkpoint + 500
     for epoch in range(epoch_checkpoint, last_epoch):
         running_loss = 0.0
 
